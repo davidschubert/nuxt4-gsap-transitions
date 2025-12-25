@@ -6,34 +6,44 @@ const loadingScreen = ref<HTMLElement | null>(null)
 const loadingText = ref<HTMLElement | null>(null)
 const loadingBar = ref<HTMLElement | null>(null)
 
+// GSAP Context for automatic cleanup
+let ctx: gsap.Context
+
 onMounted(() => {
   if (!isLoading.value) return
 
-  const tl = gsap.timeline({
-    onComplete: () => {
-      isLoading.value = false
-    }
-  })
+  // Create context scoped to the loading screen
+  ctx = gsap.context(() => {
+    const tl = gsap.timeline({
+      onComplete: () => {
+        isLoading.value = false
+      }
+    })
 
-  // Animate loading bar
-  tl.to(loadingBar.value, {
-    scaleX: 1,
-    duration: 1.2,
-    ease: 'power2.inOut'
-  })
-    // Fade out text
-    .to(loadingText.value, {
-      opacity: 0,
-      y: -20,
-      duration: 0.4,
-      ease: 'power2.in'
+    // Animate loading bar
+    tl.to(loadingBar.value, {
+      scaleX: 1,
+      duration: 1.2,
+      ease: 'power2.inOut'
     })
-    // Slide up the loading screen
-    .to(loadingScreen.value, {
-      yPercent: -100,
-      duration: 0.8,
-      ease: 'power3.inOut'
-    })
+      // Fade out text
+      .to(loadingText.value, {
+        opacity: 0,
+        y: -20,
+        duration: 0.4,
+        ease: 'power2.in'
+      })
+      // Slide up the loading screen
+      .to(loadingScreen.value, {
+        yPercent: -100,
+        duration: 0.8,
+        ease: 'power3.inOut'
+      })
+  }, loadingScreen.value)
+})
+
+onUnmounted(() => {
+  ctx?.revert()
 })
 </script>
 
@@ -52,7 +62,7 @@ onMounted(() => {
 .loading-screen {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -87,4 +97,3 @@ onMounted(() => {
   transform-origin: left;
 }
 </style>
-
