@@ -5,59 +5,9 @@ useHead({
 
 const content = ref<HTMLElement | null>(null);
 const headline = ref<HTMLElement | null>(null);
-const isLoading = useState("app-loading", () => true);
 
-// Use GSAP composable with scope for automatic cleanup
-const { add, set, timeline } = useGsap(content);
-
-function playEntranceAnimation() {
-    if (!content.value) return;
-
-    const copyElements = content.value.querySelectorAll(".copy");
-
-    add(() => {
-        const tl = timeline({ defaults: { ease: "power3.out" } });
-
-        tl.to(headline.value, {
-            opacity: 1,
-            y: 0,
-            duration: 1,
-        }).to(
-            copyElements,
-            {
-                opacity: 1,
-                y: 0,
-                duration: 0.8,
-                stagger: 0.2,
-            },
-            "-=0.5"
-        );
-    });
-}
-
-onMounted(() => {
-    // Immediately hide elements before any animation
-    add(() => {
-        set(headline.value, { opacity: 0, y: 50 });
-        if (content.value) {
-            set(content.value.querySelectorAll(".copy"), { opacity: 0, y: 30 });
-        }
-    });
-
-    // Wait for loading screen to finish before animating
-    if (isLoading.value) {
-        const unwatch = watch(isLoading, (loading) => {
-            if (!loading) {
-                setTimeout(() => {
-                    playEntranceAnimation();
-                }, 100);
-                unwatch();
-            }
-        });
-    } else {
-        playEntranceAnimation();
-    }
-});
+// Use page entrance animation composable
+usePageEntrance(content, headline);
 </script>
 
 <template>
