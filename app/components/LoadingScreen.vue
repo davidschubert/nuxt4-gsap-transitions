@@ -1,99 +1,231 @@
 <script setup lang="ts">
 import gsap from 'gsap'
+import { CustomEase } from 'gsap/CustomEase'
+import { SplitText } from 'gsap/SplitText'
 
 const isLoading = useState('app-loading', () => true)
-const loadingScreen = ref<HTMLElement | null>(null)
-const loadingText = ref<HTMLElement | null>(null)
-const loadingBar = ref<HTMLElement | null>(null)
+
+// Element refs
+const wrap = ref<HTMLElement | null>(null)
+const container = ref<HTMLElement | null>(null)
+const bg = ref<HTMLElement | null>(null)
+const progressBar = ref<HTMLElement | null>(null)
+const logo = ref<HTMLElement | null>(null)
+const textElements = ref<HTMLElement[]>([])
 
 // GSAP Context for automatic cleanup
 let ctx: gsap.Context
 
 onMounted(() => {
-  if (!isLoading.value) return
+  if (!isLoading.value || !wrap.value) return
 
-  // Create context scoped to the loading screen
+  // Register plugins and create custom ease
+  gsap.registerPlugin(CustomEase, SplitText)
+  CustomEase.create('loader', '0.65, 0.01, 0.05, 0.99')
+
+  // Create GSAP context
   ctx = gsap.context(() => {
-    const tl = gsap.timeline({
+    // Main loader timeline
+    const loadTimeline = gsap.timeline({
+      defaults: {
+        ease: 'loader',
+        duration: 3
+      },
       onComplete: () => {
         isLoading.value = false
       }
     })
 
-    // Animate loading bar
-    tl.to(loadingBar.value, {
-      scaleX: 1,
-      duration: 1.2,
-      ease: 'power2.inOut'
-    })
-      // Fade out text
-      .to(loadingText.value, {
-        opacity: 0,
-        y: -20,
+    // Start with wrap visible
+    loadTimeline
+      .set(wrap.value, { display: 'block' })
+      .to(progressBar.value, { scaleX: 1 })
+      .to(logo.value, { clipPath: 'inset(0% 0% 0% 0%)' }, '<')
+      .to(container.value, { autoAlpha: 0, duration: 0.5 })
+      .to(progressBar.value, { scaleX: 0, transformOrigin: 'right center', duration: 0.5 }, '<')
+      .add('hideContent', '<')
+      .to(bg.value, { yPercent: -101, duration: 1 }, 'hideContent')
+      .set(wrap.value, { display: 'none' })
+
+    // If there are text elements, split and animate them
+    if (textElements.value.length >= 2) {
+      const firstText = textElements.value[0]
+      const secondText = textElements.value[1]
+
+      const firstWord = new SplitText(firstText, { type: 'lines,chars', mask: 'lines' })
+      const secondWord = new SplitText(secondText, { type: 'lines,chars', mask: 'lines' })
+
+      // Set initial states
+      gsap.set([firstWord.chars, secondWord.chars], { autoAlpha: 0, yPercent: 125 })
+      gsap.set(textElements.value, { autoAlpha: 1 })
+
+      // First text in
+      loadTimeline.to(firstWord.chars, {
+        autoAlpha: 1,
+        yPercent: 0,
+        duration: 0.6,
+        stagger: { each: 0.02 }
+      }, 0)
+
+      // First text out while second text in
+      loadTimeline.to(firstWord.chars, {
+        autoAlpha: 0,
+        yPercent: -125,
         duration: 0.4,
-        ease: 'power2.in'
-      })
-      // Slide up the loading screen
-      .to(loadingScreen.value, {
-        yPercent: -100,
-        duration: 0.8,
-        ease: 'power3.inOut'
-      })
-  }, loadingScreen.value)
+        stagger: { each: 0.02 }
+      }, '>+=0.4')
+
+      loadTimeline.to(secondWord.chars, {
+        autoAlpha: 1,
+        yPercent: 0,
+        duration: 0.6,
+        stagger: { each: 0.02 }
+      }, '<')
+
+      // Second text out
+      loadTimeline.to(secondWord.chars, {
+        autoAlpha: 0,
+        yPercent: -125,
+        duration: 0.4,
+        stagger: { each: 0.02 }
+      }, 'hideContent-=0.5')
+    }
+  }, wrap.value)
 })
 
 onUnmounted(() => {
   ctx?.revert()
 })
+
+// Helper to set text element refs
+function setTextRef(el: Element | ComponentPublicInstance | null, index: number) {
+  if (el) {
+    textElements.value[index] = el as HTMLElement
+  }
+}
 </script>
 
 <template>
-  <div v-if="isLoading" ref="loadingScreen" class="loading-screen">
-    <div class="loading-content">
-      <p ref="loadingText" class="loading-text">Wird geladen...</p>
-      <div class="loading-bar-container">
-        <div ref="loadingBar" class="loading-bar"></div>
+  <div v-if="isLoading" ref="wrap" class="loader">
+    <div ref="bg" class="loader__bg">
+      <div ref="progressBar" class="loader__bg-bar"></div>
+    </div>
+    <div ref="container" class="loader__container">
+      <div class="loader__logo-wrap">
+        <!-- Base logo (dimmed) -->
+        <div class="loader__logo-item is--base">
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 178 40" fill="none" class="loader__logo-img">
+            <path d="M161.77 13.4645C161.143 14.0944 160.07 13.6483 160.07 12.7574V0H156.085V15C156.085 16.6569 154.747 18 153.097 18H138.154V22H150.863C151.75 22 152.195 23.0771 151.567 23.7071L142.722 32.5858L145.54 35.4142L154.385 26.5356C155.01 25.9075 156.079 26.3491 156.085 27.2347V40L160.07 40L160.07 25C160.07 23.3431 161.408 22 163.058 22H178.001V18H165.284C164.405 17.9936 163.965 16.9273 164.583 16.2985L164.588 16.2929L173.433 7.41421L170.615 4.58582L161.77 13.4645Z" fill="currentColor"/>
+            <path d="M16.084 37.178C6.27782 37.178 0 29.956 0 20.066C0 10.176 6.27782 3 16.084 3C25.8903 3 32.1681 10.176 32.1681 20.066C32.1681 29.956 25.8903 37.178 16.084 37.178ZM5.2697 20.066C5.2697 26.828 8.33987 32.808 16.084 32.808C23.8282 32.808 26.8984 26.828 26.8984 20.066C26.8984 13.304 23.8282 7.37 16.084 7.37C8.33987 7.37 5.2697 13.304 5.2697 20.066Z" fill="currentColor"/>
+            <path d="M45.478 37.178C38.3754 37.178 34.847 33.498 34.7095 28.714H39.246C39.4293 31.428 41.0789 33.544 45.4322 33.544C49.373 33.544 50.4269 31.796 50.4269 30.094C50.4269 27.15 47.3109 26.828 44.2866 26.184C40.2083 25.218 35.5343 24.022 35.5343 19.146C35.5343 15.098 38.7878 12.384 44.4241 12.384C50.8393 12.384 53.9095 15.834 54.2303 19.882H49.6938C49.373 18.088 48.4107 16.018 44.5157 16.018C41.4914 16.018 40.2083 17.214 40.2083 18.962C40.2083 21.4 42.8202 21.63 46.1195 22.366C50.4269 23.378 55.1009 24.62 55.1009 29.864C55.1009 34.418 51.6183 37.178 45.478 37.178Z" fill="currentColor"/>
+            <path d="M72.6642 21.492C72.6642 18.364 72.0227 16.248 68.5859 16.248C65.2408 16.248 63.1329 18.594 63.1329 22.136V36.534H58.6422V13.074H63.1329V16.018H63.2246C64.4618 14.224 66.6155 12.384 70.1439 12.384C73.3974 12.384 75.4136 13.856 76.3301 16.478H76.4217C78.1172 14.224 80.5 12.384 84.0742 12.384C88.7941 12.384 91.1769 15.236 91.1769 20.25V36.534H86.6862V21.492C86.6862 18.364 86.0447 16.248 82.6079 16.248C79.2628 16.248 77.1549 18.594 77.1549 22.136V36.534H72.6642V21.492Z" fill="currentColor"/>
+            <path d="M106.545 37.224C99.2594 37.224 94.8603 32.164 94.8603 24.804C94.8603 17.49 99.2594 12.338 106.591 12.338C113.831 12.338 118.23 17.444 118.23 24.758C118.23 32.118 113.831 37.224 106.545 37.224ZM99.5343 24.804C99.5343 29.68 101.734 33.498 106.591 33.498C111.357 33.498 113.556 29.68 113.556 24.804C113.556 19.882 111.357 16.11 106.591 16.11C101.734 16.11 99.5343 19.882 99.5343 24.804Z" fill="currentColor"/>
+          </svg>
+        </div>
+        <!-- Top logo (revealed via clip-path) -->
+        <div ref="logo" class="loader__logo-item is--top">
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 178 40" fill="none" class="loader__logo-img">
+            <path d="M161.77 13.4645C161.143 14.0944 160.07 13.6483 160.07 12.7574V0H156.085V15C156.085 16.6569 154.747 18 153.097 18H138.154V22H150.863C151.75 22 152.195 23.0771 151.567 23.7071L142.722 32.5858L145.54 35.4142L154.385 26.5356C155.01 25.9075 156.079 26.3491 156.085 27.2347V40L160.07 40L160.07 25C160.07 23.3431 161.408 22 163.058 22H178.001V18H165.284C164.405 17.9936 163.965 16.9273 164.583 16.2985L164.588 16.2929L173.433 7.41421L170.615 4.58582L161.77 13.4645Z" fill="currentColor"/>
+            <path d="M16.084 37.178C6.27782 37.178 0 29.956 0 20.066C0 10.176 6.27782 3 16.084 3C25.8903 3 32.1681 10.176 32.1681 20.066C32.1681 29.956 25.8903 37.178 16.084 37.178ZM5.2697 20.066C5.2697 26.828 8.33987 32.808 16.084 32.808C23.8282 32.808 26.8984 26.828 26.8984 20.066C26.8984 13.304 23.8282 7.37 16.084 7.37C8.33987 7.37 5.2697 13.304 5.2697 20.066Z" fill="currentColor"/>
+            <path d="M45.478 37.178C38.3754 37.178 34.847 33.498 34.7095 28.714H39.246C39.4293 31.428 41.0789 33.544 45.4322 33.544C49.373 33.544 50.4269 31.796 50.4269 30.094C50.4269 27.15 47.3109 26.828 44.2866 26.184C40.2083 25.218 35.5343 24.022 35.5343 19.146C35.5343 15.098 38.7878 12.384 44.4241 12.384C50.8393 12.384 53.9095 15.834 54.2303 19.882H49.6938C49.373 18.088 48.4107 16.018 44.5157 16.018C41.4914 16.018 40.2083 17.214 40.2083 18.962C40.2083 21.4 42.8202 21.63 46.1195 22.366C50.4269 23.378 55.1009 24.62 55.1009 29.864C55.1009 34.418 51.6183 37.178 45.478 37.178Z" fill="currentColor"/>
+            <path d="M72.6642 21.492C72.6642 18.364 72.0227 16.248 68.5859 16.248C65.2408 16.248 63.1329 18.594 63.1329 22.136V36.534H58.6422V13.074H63.1329V16.018H63.2246C64.4618 14.224 66.6155 12.384 70.1439 12.384C73.3974 12.384 75.4136 13.856 76.3301 16.478H76.4217C78.1172 14.224 80.5 12.384 84.0742 12.384C88.7941 12.384 91.1769 15.236 91.1769 20.25V36.534H86.6862V21.492C86.6862 18.364 86.0447 16.248 82.6079 16.248C79.2628 16.248 77.1549 18.594 77.1549 22.136V36.534H72.6642V21.492Z" fill="currentColor"/>
+            <path d="M106.545 37.224C99.2594 37.224 94.8603 32.164 94.8603 24.804C94.8603 17.49 99.2594 12.338 106.591 12.338C113.831 12.338 118.23 17.444 118.23 24.758C118.23 32.118 113.831 37.224 106.545 37.224ZM99.5343 24.804C99.5343 29.68 101.734 33.498 106.591 33.498C111.357 33.498 113.556 29.68 113.556 24.804C113.556 19.882 111.357 16.11 106.591 16.11C101.734 16.11 99.5343 19.882 99.5343 24.804Z" fill="currentColor"/>
+          </svg>
+        </div>
+      </div>
+      <!-- Animated text -->
+      <div class="loader__text-wrap">
+        <span :ref="(el) => setTextRef(el, 0)" class="loader__text-el">Hold tight</span>
+        <span :ref="(el) => setTextRef(el, 1)" class="loader__text-el">Hi there!</span>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.loading-screen {
-  position: fixed;
-  inset: 0;
+.loader {
   z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #1a1a1a;
-}
-
-.loading-content {
-  text-align: center;
-}
-
-.loading-text {
-  font-size: 1.25rem;
   color: #fff;
-  margin-bottom: 1.5rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  width: 100%;
+  height: 100dvh;
+  position: fixed;
+  inset: 0% 0% auto;
 }
 
-.loading-bar-container {
-  width: 200px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.loading-bar {
+.loader__bg {
+  background-color: #0a0a0a;
   width: 100%;
   height: 100%;
-  background: #fff;
+  position: absolute;
+  inset: 0%;
+}
+
+.loader__container {
+  z-index: 2;
+  flex-flow: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  position: relative;
+}
+
+.loader__bg-bar {
+  z-index: 1;
+  transform-origin: 0%;
+  transform-style: preserve-3d;
+  background-color: #fff;
+  width: 100%;
+  height: 0.5em;
+  position: absolute;
+  inset: auto 0% 0%;
   transform: scaleX(0);
-  transform-origin: left;
+}
+
+.loader__logo-wrap {
+  justify-content: center;
+  align-items: center;
+  width: 12em;
+  height: 3em;
+  display: flex;
+  position: relative;
+}
+
+.loader__logo-item {
+  width: 100%;
+  position: absolute;
+}
+
+.loader__logo-item.is--base {
+  opacity: 0.2;
+}
+
+.loader__logo-item.is--top {
+  clip-path: inset(0% 100% 0% 0%);
+}
+
+.loader__logo-img {
+  width: 100%;
+  display: block;
+}
+
+.loader__text-wrap {
+  flex-flow: column;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  position: absolute;
+  bottom: 3.5em;
+}
+
+.loader__text-el {
+  text-transform: uppercase;
+  white-space: nowrap;
+  margin-bottom: -0.25em;
+  padding-bottom: 0.25em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  position: absolute;
+  opacity: 0;
 }
 </style>
