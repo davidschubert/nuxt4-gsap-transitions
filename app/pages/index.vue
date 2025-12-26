@@ -14,7 +14,7 @@ usePageEntrance(content, headline);
     <main class="page">
         <section ref="content" class="hero">
             <h1 ref="headline" class="headline">
-                Willkommen bei GSAP Transitions
+                Willkommen auf Maui
             </h1>
             <p class="copy">
                 Entdecke die Kraft von GSAP Animationen in Nuxt 4. Diese Demo
