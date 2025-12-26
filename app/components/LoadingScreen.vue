@@ -17,7 +17,13 @@ const textElements = ref<HTMLElement[]>([])
 let ctx: gsap.Context
 
 onMounted(() => {
-  if (!isLoading.value || !wrap.value) return
+  if (!wrap.value) return
+
+  // If already loaded (e.g., navigating back), hide immediately
+  if (!isLoading.value) {
+    gsap.set(wrap.value, { display: 'none' })
+    return
+  }
 
   // Register plugins and create custom ease
   gsap.registerPlugin(CustomEase, SplitText)
@@ -36,9 +42,8 @@ onMounted(() => {
       }
     })
 
-    // Start with wrap visible
+    // Animate the loader
     loadTimeline
-      .set(wrap.value, { display: 'block' })
       .to(progressBar.value, { scaleX: 1 })
       .to(logo.value, { clipPath: 'inset(0% 0% 0% 0%)' }, '<')
       .to(container.value, { autoAlpha: 0, duration: 0.5 })
@@ -106,7 +111,8 @@ function setTextRef(el: Element | ComponentPublicInstance | null, index: number)
 </script>
 
 <template>
-  <div v-if="isLoading" ref="wrap" class="loader">
+  <!-- No v-if - always render so it's in SSR HTML and covers content immediately -->
+  <div ref="wrap" class="loader">
     <div ref="bg" class="loader__bg">
       <div ref="progressBar" class="loader__bg-bar"></div>
     </div>
